@@ -17,6 +17,37 @@
             letter-spacing: 0.1em;
             font-size: 0.9rem;
         }
+        .house-icon {
+            transform: perspective(200px) rotateX(15deg) rotateY(-5deg);
+            display: inline-block;
+            margin-right: 4px;
+            font-size: 1.1em;
+            color: white;
+        }
+        .header-search-minimal {
+            background: transparent;
+            border: none;
+            border-bottom: 1.5px solid white;
+            color: white;
+            padding: 2px 28px 2px 28px;
+            outline: none;
+            width: 180px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        .header-search-minimal::placeholder {
+            color: #fff;
+            opacity: 0.7;
+        }
+        .header-search-icon-minimal {
+            position: absolute;
+            left: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            pointer-events: none;
+            font-size: 1rem;
+        }
         .product-card {
             transition: transform 0.3s ease;
         }
@@ -34,6 +65,7 @@
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
             transition: right 0.3s ease-in-out;
             z-index: 1000;
+            overflow-y: auto;
         }
         .cart-slider.open {
             right: 0;
@@ -56,6 +88,8 @@
         }
         .cart-item {
             transition: transform 0.2s ease;
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
         }
         .cart-item:hover {
             transform: translateX(-5px);
@@ -98,38 +132,62 @@
 </head>
 <body class="min-h-screen">
     <!-- Navigation -->
-    <nav class="bg-white border-b border-gray-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex">
-                    <div class="flex-shrink-0 flex items-center">
-                        <a href="{{ url_for('index') }}" class="text-2xl font-bold">testsite</a>
-                    </div>
-                    <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                        <a href="{{ url_for('index') }}" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-black">
-                            Home
-                        </a>
-                        <a href="{{ url_for('catalog') }}" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-black">
-                            Catalog
-                        </a>
-                        <a href="#" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-black">
-                            Contact
-                        </a>
+    <nav class="bg-black text-white fixed top-0 left-0 right-0 z-50">
+        <div class="max-w-7xl mx-auto px-0 sm:px-2 lg:px-4">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Left side: Hamburger and Logo -->
+                <div class="flex items-center">
+                    <button class="p-2 pl-4 rounded-md hover:bg-gray-800 focus:outline-none" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <a href="{{ url_for('index') }}" class="ml-2 text-2xl font-bold">Unchambered Seams</a>
+                </div>
+                <!-- Center: Navigation Links -->
+                <div class="hidden md:flex items-center space-x-4 ml-8">
+                    <a href="{{ url_for('index') }}" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-white">
+                        <i class="fa-solid fa-house-chimney house-icon"></i>
+                    </a>
+                    <a href="#" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-white">
+                        Contact
+                    </a>
+                    <a href="{{ url_for('catalog') }}" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-white">
+                        Catalog
+                    </a>
+                </div>
+                <!-- Search Bar in Header -->
+                <div class="flex-1 flex justify-center">
+                    <div class="relative" style="min-width:200px;max-width:220px;">
+                        <i class="fas fa-search header-search-icon-minimal"></i>
+                        <input type="text" id="header-search-input" class="header-search-minimal" placeholder="Search..." autocomplete="off">
                     </div>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button onclick="toggleSearch()" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-black">
-                        <i class="fas fa-search mr-2"></i>
-                        Search
+                <!-- Right side: Cart -->
+                <div class="flex items-center space-x-4 ml-auto">
+                    <button onclick="toggleCart()" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-white">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="ml-1" id="cart-count">0</span>
                     </button>
-                    <button onclick="toggleCart()" class="nav-link inline-flex items-center px-1 pt-1 border-b-2 border-transparent hover:border-black">
-                        <i class="fas fa-shopping-cart mr-2"></i>
-                        Cart (<span id="cart-count">0</span>)
-                    </button>
+                </div>
+            </div>
+            <!-- Mobile Menu (Hidden by default) -->
+            <div id="mobile-menu" class="hidden md:hidden">
+                <div class="px-2 pt-2 pb-3 space-y-1">
+                    <a href="#" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Contact</a>
+                    <a href="{{ url_for('catalog') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">Catalog</a>
+                    <a href="{{ url_for('index') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-gray-800">
+                        <i class="fas fa-home"></i> Home
+                    </a>
                 </div>
             </div>
         </div>
     </nav>
+
+    <!-- Search Results Container -->
+    <div id="search-results-bar" class="w-full bg-white absolute left-0 right-0 z-40 pt-16 pb-4 hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div id="search-results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+        </div>
+    </div>
 
     <!-- Cart Slider -->
     <div class="cart-overlay" id="cart-overlay" onclick="toggleCart()"></div>
@@ -161,39 +219,6 @@
         </div>
     </div>
 
-    <!-- Search Popup -->
-    <div class="search-overlay" id="search-overlay"></div>
-    <div class="search-popup" id="search-popup">
-        <div class="h-full flex flex-col">
-            <!-- Search Header -->
-            <div class="p-4 border-b border-gray-200 flex justify-between items-center">
-                <h2 class="text-lg font-medium">Search</h2>
-                <button onclick="toggleSearch()" class="text-gray-500 hover:text-black">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <!-- Search Input -->
-            <div class="p-4 border-b border-gray-200">
-                <div class="relative">
-                    <input type="text" 
-                           id="search-input" 
-                           class="w-full border-0 border-b border-gray-200 focus:border-black focus:ring-0 text-sm pl-8"
-                           placeholder="Search by name, category, size, condition..."
-                           autocomplete="off">
-                    <div class="absolute inset-y-0 left-0 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Search Results -->
-            <div class="flex-1 overflow-y-auto" id="search-results">
-                <!-- Search results will be dynamically added here -->
-            </div>
-        </div>
-    </div>
-
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -207,10 +232,13 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {% block content %}{% endblock %}
-    </main>
+    <!-- Add padding to main content to account for fixed header -->
+    <div class="pt-16">
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 mt-12">
@@ -218,7 +246,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div>
                     <h3 class="text-lg font-semibold mb-4">About Us</h3>
-                    <p class="text-sm text-gray-600">testsite - Curated vintage fashion for the modern individual.</p>
+                    <p class="text-sm text-gray-600">Unchambered Seams - Curated vintage fashion for the modern individual.</p>
                 </div>
                 <div>
                     <h3 class="text-lg font-semibold mb-4">Quick Links</h3>
@@ -239,7 +267,7 @@
                 </div>
             </div>
             <div class="text-center text-sm text-gray-500 mt-8">
-                <p>&copy; 2024 testsite. All rights reserved.</p>
+                <p>&copy; 2024 Unchambered Seams. All rights reserved.</p>
             </div>
         </div>
     </footer>
@@ -299,53 +327,54 @@
             cartTotal.textContent = `$${total.toFixed(2)}`;
         }
 
-        // Search functionality
-        function toggleSearch() {
-            document.getElementById('search-popup').classList.toggle('open');
-            document.getElementById('search-overlay').classList.toggle('open');
-        }
-
+        // --- Search Bar in Header ---
+        const searchInput = document.getElementById('header-search-input');
+        const searchResultsBar = document.getElementById('search-results-bar');
+        const searchResultsGrid = document.getElementById('search-results-grid');
         let searchTimeout;
-        document.getElementById('search-input').addEventListener('input', function(e) {
+        searchInput.addEventListener('input', function(e) {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const query = e.target.value.trim();
-                if (query) {
+            const query = e.target.value.trim();
+            if (query) {
+                searchTimeout = setTimeout(() => {
                     fetch(`/catalog?q=${encodeURIComponent(query)}`)
                         .then(response => response.text())
                         .then(html => {
+                            // Parse the returned HTML and extract product images
                             const parser = new DOMParser();
                             const doc = parser.parseFromString(html, 'text/html');
-                            const items = doc.querySelectorAll('.group');
-                            
-                            const searchResults = document.getElementById('search-results');
-                            searchResults.innerHTML = Array.from(items).map(item => {
-                                const name = item.querySelector('h3').textContent;
-                                const category = item.querySelector('p').textContent;
-                                const price = item.querySelector('span').textContent;
-                                const size = item.querySelector('span:last-child').textContent;
-                                const image = item.querySelector('img')?.src || '';
-                                
-                                return `
-                                    <div class="search-item" onclick="window.location.href='${item.querySelector('a').href}'">
-                                        <img src="${image}" alt="${name}" class="w-16 h-16 object-cover mr-4">
-                                        <div class="flex-1">
-                                            <h3 class="text-sm font-medium">${name}</h3>
-                                            <p class="text-sm text-gray-500">${category}</p>
-                                            <div class="flex justify-between">
-                                                <span class="text-sm font-medium">${price}</span>
-                                                <span class="text-xs text-gray-500">${size}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                `;
+                            const items = doc.querySelectorAll('.group, .bg-white.border.border-gray-200.rounded-lg.shadow-sm.flex.flex-col');
+                            searchResultsGrid.innerHTML = Array.from(items).map(item => {
+                                const img = item.querySelector('img');
+                                const name = item.querySelector('h3')?.textContent || '';
+                                const price = item.querySelector('span')?.textContent || '';
+                                const link = item.querySelector('a')?.href || '#';
+                                return img ? `
+                                    <a href="${link}" class="block group relative">
+                                        <img src="${img.src}" alt="${name}" class="w-full h-48 object-cover rounded shadow">
+                                        <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">${name} ${price}</div>
+                                    </a>
+                                ` : '';
                             }).join('');
+                            searchResultsBar.classList.remove('hidden');
                         });
-                } else {
-                    document.getElementById('search-results').innerHTML = '';
-                }
-            }, 300);
+                }, 250);
+            } else {
+                searchResultsBar.classList.add('hidden');
+                searchResultsGrid.innerHTML = '';
+            }
         });
+        // Hide search results if user clicks outside
+        document.addEventListener('click', function(event) {
+            if (!searchResultsBar.contains(event.target) && event.target !== searchInput) {
+                searchResultsBar.classList.add('hidden');
+            }
+        });
+
+        function toggleMobileMenu() {
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenu.classList.toggle('hidden');
+        }
     </script>
 </body>
 </html> 
