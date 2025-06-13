@@ -98,7 +98,7 @@ init_db()
 @app.route('/')
 def index():
     logger.info("Accessing index route")
-    return redirect(url_for('catalog'))
+    return render_template('home.html')
 
 @app.route('/catalog')
 def catalog():
