@@ -1,297 +1,260 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Product } from "@/lib/supabase";
+import UniversalHeader from "@/components/UniversalHeader";
 
-// Product data structure matching your Flask model
-interface Product {
+interface Category {
   id: number;
   name: string;
-  category: string;
-  size: string;
-  condition: string;
-  price: number;
-  quantity: number;
-  notes?: string;
-  image_url?: string;
-  image_file?: string;
-  date_added: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
 }
 
-// Sample data from your Flask app
-const sampleProducts: Product[] = [
+// Fallback placeholder products when API fails or database is empty
+const fallbackProducts: Product[] = [
   {
     id: 1,
-    name: "Vintage Denim Jacket",
-    category: "Jackets",
-    size: "M",
-    condition: "Good",
-    price: 99.00,
-    quantity: 1,
-    notes: "Classic 90s denim jacket in excellent condition",
-    date_added: "2024-01-01"
+    title: "Vintage Denim Jacket",
+    price: 99.99,
+    description: "Classic 90s denim jacket in excellent condition",
+    image_url: "",
+    image_file: "",
+    category_id: 1,
+    category: { id: 1, name: "Jackets", description: "", created_at: "", updated_at: "" },
+    is_staff_pick: true,
+    is_active: true,
+    created_at: "",
+    updated_at: ""
   },
   {
     id: 2,
-    name: "Retro T-Shirt",
-    category: "Tops",
-    size: "L",
-    condition: "Excellent",
-    price: 49.00,
-    quantity: 2,
-    notes: "Vintage band t-shirt from the 80s",
-    date_added: "2024-01-01"
+    title: "Retro T-Shirt",
+    price: 49.99,
+    description: "Vintage band t-shirt from the 80s",
+    image_url: "",
+    image_file: "",
+    category_id: 2,
+    category: { id: 2, name: "Tops", description: "", created_at: "", updated_at: "" },
+    is_staff_pick: true,
+    is_active: true,
+    created_at: "",
+    updated_at: ""
   },
   {
     id: 3,
-    name: "Leather Boots",
-    category: "Footwear",
-    size: "42",
-    condition: "Good",
-    price: 199.00,
-    quantity: 1,
-    notes: "Vintage leather boots, barely worn",
-    date_added: "2024-01-01"
+    title: "Leather Boots",
+    price: 199.99,
+    description: "Vintage leather boots, barely worn",
+    image_url: "",
+    image_file: "",
+    category_id: 4,
+    category: { id: 4, name: "Footwear", description: "", created_at: "", updated_at: "" },
+    is_staff_pick: true, // Changed to true for demo
+    is_active: true,
+    created_at: "",
+    updated_at: ""
   },
   {
     id: 4,
-    name: "Vintage Sweater",
-    category: "Tops",
-    size: "S",
-    condition: "Excellent",
-    price: 79.00,
-    quantity: 1,
-    notes: "Hand-knitted wool sweater from the 70s",
-    date_added: "2024-01-01"
+    title: "Vintage Sweater",
+    price: 79.99,
+    description: "Hand-knitted wool sweater from the 70s",
+    image_url: "",
+    image_file: "",
+    category_id: 2,
+    category: { id: 2, name: "Tops", description: "", created_at: "", updated_at: "" },
+    is_staff_pick: true, // Changed to true for demo
+    is_active: true,
+    created_at: "",
+    updated_at: ""
   },
   {
     id: 5,
-    name: "Denim Jeans",
-    category: "Bottoms",
-    size: "32",
-    condition: "Good",
-    price: 89.00,
-    quantity: 2,
-    notes: "Classic 90s high-waisted jeans",
-    date_added: "2024-01-01"
+    title: "Denim Jeans",
+    price: 89.99,
+    description: "Classic 90s high-waisted jeans",
+    image_url: "",
+    image_file: "",
+    category_id: 3,
+    category: { id: 3, name: "Bottoms", description: "", created_at: "", updated_at: "" },
+    is_staff_pick: false,
+    is_active: true,
+    created_at: "",
+    updated_at: ""
+  },
+  {
+    id: 6,
+    title: "Vintage Bag",
+    price: 129.99,
+    description: "Authentic leather bag from the 60s",
+    image_url: "",
+    image_file: "",
+    category_id: 5,
+    category: { id: 5, name: "Accessories", description: "", created_at: "", updated_at: "" },
+    is_staff_pick: false,
+    is_active: true,
+    created_at: "",
+    updated_at: ""
   }
 ];
 
-const categories = ["Jackets", "Tops", "Bottoms", "Footwear", "Accessories"];
-
 export default function Marketplace() {
-  const [products, setProducts] = useState<Product[]>(sampleProducts);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(sampleProducts);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
-  const [showFilterPopup, setShowFilterPopup] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [usingFallback, setUsingFallback] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Filter and sort products
   useEffect(() => {
-    let filtered = [...products];
+    fetchProducts();
+  }, []);
 
-    // Category filter
-    if (selectedCategory) {
-      filtered = filtered.filter(product => product.category === selectedCategory);
-    }
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/products');
 
-    // Price filter
-    if (minPrice) {
-      filtered = filtered.filter(product => product.price >= parseFloat(minPrice));
-    }
-    if (maxPrice) {
-      filtered = filtered.filter(product => product.price <= parseFloat(maxPrice));
-    }
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
 
-    // Sort
-    switch (sortBy) {
-      case "price_low":
-        filtered.sort((a, b) => a.price - b.price);
-        break;
-      case "price_high":
-        filtered.sort((a, b) => b.price - a.price);
-        break;
-      case "newest":
-        filtered.sort((a, b) => new Date(b.date_added).getTime() - new Date(a.date_added).getTime());
-        break;
-      case "oldest":
-        filtered.sort((a, b) => new Date(a.date_added).getTime() - new Date(b.date_added).getTime());
-        break;
-    }
+      const data = await response.json();
 
-    setFilteredProducts(filtered);
-  }, [products, selectedCategory, minPrice, maxPrice, sortBy]);
+      // If database is empty or has no products, use fallbacks
+      if (!data || data.length === 0) {
+        console.log('Database empty, using fallback products');
+        setProducts(fallbackProducts);
+        setUsingFallback(true);
+      } else {
+        setProducts(data);
+        setUsingFallback(false);
+      }
+    } catch (err) {
+      console.log('API failed, using fallback products');
+      setProducts(fallbackProducts);
+      setUsingFallback(true);
+      setError(null); // Don't show error to user, just use fallbacks
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatPrice = (price: number) => {
     return `$${price.toFixed(2)}`;
   };
 
-  const staffPicks = filteredProducts.slice(0, 8);
+
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-xl">Loading products...</div>
+      </div>
+    );
+  }
+
+  const staffPicks = products.filter(product => product.is_staff_pick);
+  const allProducts = products.filter(product => product.is_active);
+
+  // Always show exactly 4 items in staff picks carousel
+  // If we have fewer than 4 staff picks, fill with regular products
+  const carouselItems = staffPicks.length >= 4
+    ? staffPicks.slice(0, 4)
+    : [...staffPicks, ...allProducts.filter(p => !p.is_staff_pick)].slice(0, 4);
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-black text-white py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold">Chambered Inseams</h1>
-          <p className="text-gray-300 mt-2">Vintage & Rare Finds</p>
-        </div>
-      </div>
+      {/* Universal Header */}
+      <UniversalHeader 
+        title="Vintage & Rare Finds" 
+        showHamburger={true}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Staff Picks Carousel */}
-        <div className="mb-12">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold tracking-tight text-gray-900">Staff Picks</h2>
-          </div>
-          <div className="relative">
-            <div className="overflow-x-auto pb-2">
-              <div className="flex space-x-6 min-w-max lg:justify-center lg:space-x-8">
-                {staffPicks.length > 0 ? (
-                  staffPicks.map((item) => (
+        {/* Staff Picks Section */}
+        {carouselItems.length > 0 && (
+          <div className="mb-12">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold tracking-tight text-gray-900">Staff Picks</h2>
+              {/* Scroll indicator for mobile */}
+              <div className="flex items-center space-x-1 md:hidden">
+                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                <span className="text-xs text-gray-500 ml-2">Swipe</span>
+              </div>
+            </div>
+            <div className="relative">
+              {/* Mobile scroll container with better touch handling */}
+              <div
+                ref={scrollContainerRef}
+                className="overflow-x-auto scrollbar-hide pb-4 -mb-4"
+                style={{
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch'
+                }}
+              >
+                <div className="flex space-x-4 md:space-x-6 lg:space-x-8 px-4 md:px-0">
+                  {carouselItems.map((item, index) => (
                     <motion.div
                       key={item.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5 }}
-                      className="bg-white border border-gray-200 rounded-lg shadow-sm w-56 h-80 lg:w-72 lg:h-96 flex-shrink-0 flex flex-col hover:shadow-lg transition-shadow"
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      className="bg-white border border-gray-200 rounded-lg shadow-sm w-64 md:w-56 lg:w-72 flex-shrink-0 flex flex-col hover:shadow-lg transition-shadow"
+                      style={{ minHeight: '320px' }}
                     >
                       <div className="relative">
-                        {item.image_file ? (
-                          <img 
-                            src={`/uploads/${item.image_file}`} 
-                            alt={item.name} 
-                            className="w-full h-48 lg:h-64 object-cover rounded-t-lg"
-                          />
-                        ) : item.image_url ? (
-                          <img 
-                            src={item.image_url} 
-                            alt={item.name} 
-                            className="w-full h-48 lg:h-64 object-cover rounded-t-lg"
+                        {/* Image */}
+                        {item.image_url || item.image_file ? (
+                          <img
+                            src={item.image_url || `/uploads/${item.image_file}`}
+                            alt={item.title}
+                            className="w-full h-48 md:h-48 lg:h-64 object-cover rounded-t-lg"
                           />
                         ) : (
-                          <div className="w-full h-48 lg:h-64 flex items-center justify-center bg-gray-100 rounded-t-lg">
+                          <div className="w-full h-48 md:h-48 lg:h-64 flex items-center justify-center bg-gray-100 rounded-t-lg">
                             <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                             </svg>
                           </div>
                         )}
                         <div className="absolute top-2 left-2 bg-white border border-black px-2 py-1 text-xs font-bold">
-                          STAFF PICK
+                          {item.is_staff_pick ? 'STAFF PICK' : 'FEATURED'}
                         </div>
                       </div>
                       <div className="p-3 flex-1 flex flex-col justify-between">
                         <div>
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-bold text-xs uppercase">{item.category}</span>
-                            <span className="font-bold text-xs">{item.size}</span>
-                          </div>
-                          <div className="font-bold text-base leading-tight mb-1">{item.name}</div>
-                          <div className="text-sm text-gray-500 mb-1">{item.notes || ''}</div>
+                          <div className="font-bold text-base leading-tight mb-1">{item.title}</div>
+                          {item.description && (
+                            <div className="text-sm text-gray-500 mb-1 line-clamp-2">{item.description}</div>
+                          )}
                         </div>
                         <div className="flex items-center space-x-2 mt-2">
                           <span className="text-red-600 font-bold text-lg">{formatPrice(item.price)}</span>
                         </div>
                       </div>
                     </motion.div>
-                  ))
-                ) : (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="bg-gray-50 border border-dashed border-gray-300 rounded-lg w-56 h-80 lg:w-72 lg:h-96 flex items-center justify-center flex-shrink-0">
-                      <span className="text-gray-300 text-lg">No staff picks</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filter Button and Popup */}
-        <div className="mb-8 flex items-center">
-          <button
-            type="button"
-            onClick={() => setShowFilterPopup(!showFilterPopup)}
-            className="bg-black text-white px-6 py-2 rounded font-bold text-sm shadow hover:bg-gray-900 focus:outline-none"
-          >
-            <svg className="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-            Filter
-          </button>
-        </div>
-
-        {/* Filter Popup */}
-        {showFilterPopup && (
-          <div className="fixed top-24 left-8 bg-white border border-black rounded-lg shadow-lg p-6 z-50 min-w-[260px]">
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="category" className="block text-xs font-bold mb-1">Category</label>
-                <select
-                  name="category"
-                  id="category"
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full border border-black rounded px-3 py-2 text-sm"
-                >
-                  <option value="">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
                   ))}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <div>
-                  <label htmlFor="min_price" className="block text-xs font-bold mb-1">Min Price</label>
-                  <input
-                    type="number"
-                    name="min_price"
-                    id="min_price"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                    step="0.01"
-                    className="w-full border border-black rounded px-3 py-2 text-sm"
-                    placeholder="Min"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="max_price" className="block text-xs font-bold mb-1">Max Price</label>
-                  <input
-                    type="number"
-                    name="max_price"
-                    id="max_price"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                    step="0.01"
-                    className="w-full border border-black rounded px-3 py-2 text-sm"
-                    placeholder="Max"
-                  />
                 </div>
               </div>
-              <div>
-                <label htmlFor="sort_by" className="block text-xs font-bold mb-1">Sort By</label>
-                <select
-                  name="sort_by"
-                  id="sort_by"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full border border-black rounded px-3 py-2 text-sm"
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="price_low">Price: Low to High</option>
-                  <option value="price_high">Price: High to Low</option>
-                </select>
-              </div>
+
+              {/* Scroll gradient indicators for mobile */}
+              <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none md:hidden"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none md:hidden"></div>
             </div>
           </div>
         )}
 
         {/* All Products Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((item) => (
+          {allProducts.map((item) => (
             <motion.div
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
@@ -300,16 +263,11 @@ export default function Marketplace() {
               className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-lg transition-shadow"
             >
               <div className="relative">
-                {item.image_file ? (
-                  <img 
-                    src={`/uploads/${item.image_file}`} 
-                    alt={item.name} 
-                    className="w-full h-48 object-cover rounded-t-lg"
-                  />
-                ) : item.image_url ? (
-                  <img 
-                    src={item.image_url} 
-                    alt={item.name} 
+                {/* Image */}
+                {item.image_url || item.image_file ? (
+                  <img
+                    src={item.image_url || `/uploads/${item.image_file}`}
+                    alt={item.title}
                     className="w-full h-48 object-cover rounded-t-lg"
                   />
                 ) : (
@@ -321,21 +279,46 @@ export default function Marketplace() {
                 )}
               </div>
               <div className="p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-xs uppercase">{item.category}</span>
-                  <span className="font-bold text-xs">{item.size}</span>
-                </div>
-                <div className="font-bold text-base leading-tight mb-2">{item.name}</div>
-                <div className="text-sm text-gray-500 mb-2">{item.notes || ''}</div>
+                <div className="font-bold text-base leading-tight mb-2">{item.title}</div>
+                {item.description && (
+                  <div className="text-sm text-gray-500 mb-2">{item.description}</div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-red-600 font-bold text-lg">{formatPrice(item.price)}</span>
-                  <span className="text-xs text-gray-500">{item.condition}</span>
                 </div>
               </div>
             </motion.div>
           ))}
         </div>
+
+        {/* Demo notice when using fallback */}
+        {usingFallback && (
+          <div className="mt-8 text-center">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
+              <p className="text-blue-800 text-sm">
+                💡 Demo Mode: Showing sample products.
+                <a href="/admin/login" className="underline ml-1">Login to admin</a> to add real products.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
+      {/* Custom CSS for hiding scrollbars */}
+      <style jsx>{`
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </div>
   );
 } 
